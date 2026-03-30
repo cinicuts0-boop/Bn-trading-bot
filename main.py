@@ -4,8 +4,8 @@ import time
 import os
 from telegram import Bot
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TOKEN = os.getenv("8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU")
+CHAT_ID = os.getenv("8007854479")
 
 bot = Bot(token=TOKEN)
 
