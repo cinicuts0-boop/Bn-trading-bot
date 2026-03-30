@@ -1,55 +1,43 @@
-import requests
-import pandas as pd
 import time
-import os
-from telegram import Bot
+import requests
+import random  # (demo data)
 
-TOKEN = os.getenv("8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU")
-CHAT_ID = os.getenv("8007854479")
+# Telegram setup
+BOT_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
+CHAT_ID = "8007854479"
 
-bot = Bot(token=TOKEN)
+def send_telegram(msg):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
-SYMBOL = "ETHUSDT"
-INTERVAL = "15m"
-
+# Demo data (replace with real API later)
 def get_data():
-    url = f"https://api.binance.com/api/v3/klines?symbol={SYMBOL}&interval={INTERVAL}&limit=100"
-    data = requests.get(url).json()
-    
-    df = pd.DataFrame(data, columns=[
-        "time","open","high","low","close","volume",
-        "ct","qav","trades","tbv","tqv","ignore"
-    ])
-    
-    df["close"] = df["close"].astype(float)
-    return df
+    return {
+        "price": random.randint(51000, 51400),
+        "rsi": random.randint(50, 80),
+        "macd": random.uniform(-1, 1),
+        "signal": random.uniform(-1, 1),
+        "vwap": 51250
+    }
 
-def calculate_rsi(df, period=14):
-    delta = df["close"].diff()
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
+def check_signal(data):
+    if (
+        data['price'] >= 51200 and
+        data['rsi'] > 65 and
+        data['macd'] < data['signal'] and
+        data['price'] < data['vwap']
+    ):
+        return True
+    return False
+
+while True:
+    data = get_data()
     
-    avg_gain = gain.rolling(period).mean()
-    avg_loss = loss.rolling(period).mean()
-    
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    
-    return rsi
+    if check_signal(data):
+        msg = f"""🔴 BANKNIFTY 51200 PE BUY
+Price: {data['price']}
+RSI: {data['rsi']}"""
+        send_telegram(msg)
+        print("Signal sent")
 
-def calculate_macd(df):
-    exp1 = df["close"].ewm(span=12).mean()
-    exp2 = df["close"].ewm(span=26).mean()
-    macd = exp1 - exp2
-    signal = macd.ewm(span=9).mean()
-    return macd, signal
-
-def send_signal(signal, price, rsi):
-    message = f"""
-🚨 {signal} SIGNAL — ETH/USDT
-
-💰 Price: ${price}
-📊 RSI: {round(rsi,2)}
-
-🎯 TP1: {round(price*1.01,2)}
-🎯 TP2: {round(price*1.02,2
+    time.sleep(60)
