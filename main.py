@@ -14,32 +14,55 @@ def send_telegram(msg):
 
 def get_data():
     url = "https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEBANK"
-    data = requests.get(url).json()
 
-    closes = data['chart']['result'][0]['indicators']['quote'][0]['close']
-    df = pd.DataFrame(closes, columns=['close'])
-    return df.dropna()
+    try:
+        res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+
+        if res.status_code != 200:
+            print("API Error:", res.status_code)
+            return None
+
+        data = res.json()
+
+        closes = data['chart']['result'][0]['indicators']['quote'][0]['close']
+        df = pd.DataFrame(closes, columns=['close'])
+        return df.dropna()
+
+    except Exception as e:
+        print("Data Error:", e)
+        return None
 
 def strategy():
     df = get_data()
 
-    df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
-    df['ema'] = df['close'].ewm(span=20).mean()
+    if df is None or df.empty:
+        print("No data")
+        return None
 
+    df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
     last = df.iloc[-1]
+
+    print("RSI:", last['rsi'])
 
     if last['rsi'] < 30:
         return "📈 BUY CE 51200"
-
     elif last['rsi'] > 70:
         return "📉 BUY PE 51200"
 
     return None
 
+print("Bot Started...")
+
 while True:
-    signal = strategy()
+    try:
+        signal = strategy()
 
-    if signal:
-        send_telegram(f"🚨 BankNifty Signal: {signal}")
+        if signal:
+            send_telegram(f"🚨 BankNifty: {signal}")
+        else:
+            print("No signal")
 
-    time.sleep(300)  # 5 mins
+    except Exception as e:
+        print("Error:", e)
+
+    time.sleep(300)
