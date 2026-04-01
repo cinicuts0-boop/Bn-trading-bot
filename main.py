@@ -8,19 +8,31 @@ TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
 
 
-def send_telegram(msg):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
-
 def get_data():
     url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=100"
-    data = requests.get(url).json()
-    df = pd.DataFrame(data)
-    df = df.iloc[:, :6]
-    df.columns = ["time","open","high","low","close","volume"]
-    df["close"] = df["close"].astype(float)
-    return df
+    
+    res = requests.get(url)
+    
+    if res.status_code != 200:
+        print("API Error:", res.text)
+        return None
 
+    data = res.json()
+
+    # Check if data is list
+    if not isinstance(data, list):
+        print("Invalid Data:", data)
+        return None
+
+    df = pd.DataFrame(data, columns=[
+        "time","open","high","low","close","volume",
+        "close_time","qav","trades","tbbav","tbqav","ignore"
+    ])
+
+    df = df[["time","open","high","low","close","volume"]]
+    df["close"] = df["close"].astype(float)
+
+    return df
 def strategy(df):
     df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
     df["ema20"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
