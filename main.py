@@ -1,4 +1,5 @@
 
+
 import requests
 import pandas as pd
 import ta
@@ -17,7 +18,7 @@ def send_telegram(msg):
     except Exception as e:
         print("Telegram Error:", e)
 
-# 🛢️ Crude Price (Yahoo)
+# 🛢️ Crude Price
 def get_crude_price():
     try:
         df = yf.download("CL=F", period="1d", interval="1m", progress=False)
@@ -34,7 +35,7 @@ def get_crude_price():
         print("❌ Price Error:", e)
         return None
 
-# 📈 Strategy (AUTO STRIKE 🔥)
+# 📈 Strategy
 def strategy(price_history):
     df = pd.DataFrame(price_history, columns=["close"])
 
@@ -45,25 +46,29 @@ def strategy(price_history):
     usd_price = float(last["close"])
     rsi = float(last["rsi"])
 
-    # 🔥 USD → MCX convert
+    # 🔥 USD → MCX
     mcx_price = usd_price * 80
 
-    # 🔥 AUTO ATM STRIKE
+    # 🔥 AUTO STRIKE
     strike = round(mcx_price / 100) * 100
 
     signal = None
     option = None
     option_price = None
 
-    # 🔥 SMART LOGIC
+    # ✅ FIXED LOGIC
     if rsi < 45:
         signal = "BUY"
         option = f"CRUDEOIL {int(strike)} CE"
+
+        intrinsic = max(0, mcx_price - strike)
         option_price = max(100, intrinsic + (mcx_price * 0.02))
 
     elif rsi > 55:
         signal = "BUY"
         option = f"CRUDEOIL {int(strike)} PE"
+
+        intrinsic = max(0, strike - mcx_price)
         option_price = max(100, intrinsic + (mcx_price * 0.02))
 
     return signal, option, mcx_price, rsi, option_price
@@ -89,7 +94,6 @@ def run_bot():
             if len(price_history) > 100:
                 price_history.pop(0)
 
-            # RSI standard
             if len(price_history) < 14:
                 print("⏳ Collecting data...")
                 time.sleep(5)
