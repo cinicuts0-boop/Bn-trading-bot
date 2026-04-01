@@ -1,86 +1,90 @@
 
 import requests
 import pandas as pd
-import time
 import ta
+import time
 
 TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
+
 
 def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
 def get_data():
-    url = "https://query1.finance.yahoo.com/v8/finance/chart/%5ENSEI"
+    url = "https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=5m&limit=100"
+    data = requests.get(url).json()
+    df = pd.DataFrame(data)
+    df = df.iloc[:, :6]
+    df.columns = ["time","open","high","low","close","volume"]
+    df["close"] = df["close"].astype(float)
+    return df
 
-    try:
-        res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
-
-        if res.status_code != 200:
-            print("API Error:", res.status_code)
-            return None
-
-        data = res.json()
-        result = data['chart']['result'][0]
-
-        closes = result['indicators']['quote'][0]['close']
-        timestamps = result['timestamp']
-
-        df = pd.DataFrame({
-            "time": pd.to_datetime(timestamps, unit='s'),
-            "close": closes
-        })
-
-        return df.dropna()
-
-    except Exception as e:
-        print("Data Error:", e)
-        return None
-
-
-def strategy():
-    df = get_data()
-
-    if df is None or df.empty:
-        return None
-
-    df['rsi'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
-    df['ema'] = df['close'].ewm(span=50).mean()
+def strategy(df):
+    df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
+    df["ema20"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
+    df["ema50"] = ta.trend.EMAIndicator(df["close"], window=50).ema_indicator()
 
     last = df.iloc[-1]
 
-    print("Price:", last['close'], "RSI:", last['rsi'])
+    price = last["close"]
+    rsi = last["rsi"]
+    ema20 = last["ema20"]
+    ema50 = last["ema50"]
 
-    # 🎯 Your specific strikes
-    CE_1 = "NIFTY 7APR 22900 CE"
-    CE_2 = "NIFTY 7APR 23000 CE"
+    signal = None
 
-    # Strategy
-    if last['rsi'] < 30 and last['close'] > last['ema']:
-        return f"📈 BUY {CE_1} or {CE_2}"
+    # BUY CONDITION
+    if rsi < 40 and ema20 > ema50:
+        signal = "BUY"
 
-    elif last['rsi'] > 70 and last['close'] < last['ema']:
-        return f"📉 MARKET WEAK (Avoid CE / Look PE)"
+    # SELL CONDITION
+    elif rsi > 60 and ema20 < ema50:
+        signal = "SELL"
 
-    return None
+    return signal, price, rsi
 
+def run_bot():
+    print("NIFTY Bot Started...")
+    last_signal = None
 
-print("NIFTY Bot Started...")
+    while True:
+        df = get_data()
+        signal, price, rsi = strategy(df)
 
-last_signal = None
-
-while True:
-    try:
-        signal = strategy()
+        print(f"Price: {price} RSI: {rsi}")
 
         if signal and signal != last_signal:
-            send_telegram(f"🚨 {signal}")
+            if signal == "BUY":
+                tp1 = price + 50
+                tp2 = price + 100
+                sl = price - 30
+            else:
+                tp1 = price - 50
+                tp2 = price - 100
+                sl = price + 30
+
+            msg = f"""
+📊 NIFTY SIGNAL
+
+🔔 {signal}
+
+💰 Entry: {price}
+🎯 TP1: {tp1}
+🎯 TP2: {tp2}
+🛑 SL : {sl}
+
+📈 RSI: {round(rsi,2)}
+"""
+
+            send_telegram(msg)
+            print("Signal Sent:", signal)
+
             last_signal = signal
         else:
             print("No new signal")
 
-    except Exception as e:
-        print("Error:", e)
+        time.sleep(60)
 
-    time.sleep(300)
+run_bot()
