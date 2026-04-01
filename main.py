@@ -40,31 +40,35 @@ def strategy(price_history):
     df = pd.DataFrame(price_history, columns=["close"])
 
     df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
+    df["ema20"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
+    df["ema50"] = ta.trend.EMAIndicator(df["close"], window=50).ema_indicator()
 
     last = df.iloc[-1]
 
     usd_price = float(last["close"])
     rsi = float(last["rsi"])
+    ema20 = float(last["ema20"])
+    ema50 = float(last["ema50"])
 
-    # 🔥 USD → MCX
     mcx_price = usd_price * 80
-
-    # 🔥 AUTO STRIKE
     strike = round(mcx_price / 100) * 100
 
     signal = None
     option = None
     option_price = None
 
-    # ✅ FIXED LOGIC
-    if rsi < 45:
+    # 🔥 SNIPER ENTRY CONDITIONS
+
+    # BUY CE (strong reversal up)
+    if rsi < 40 and ema20 > ema50:
         signal = "BUY"
         option = f"CRUDEOIL {int(strike)} CE"
 
         intrinsic = max(0, mcx_price - strike)
         option_price = max(100, intrinsic + (mcx_price * 0.02))
 
-    elif rsi > 55:
+    # BUY PE (strong reversal down)
+    elif rsi > 60 and ema20 < ema50:
         signal = "BUY"
         option = f"CRUDEOIL {int(strike)} PE"
 
