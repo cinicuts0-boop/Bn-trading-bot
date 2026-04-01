@@ -62,12 +62,12 @@ def strategy(df):
     if rsi < 48:
         signal = "BUY"
         option = "NIFTY 7APR 22900 CE"
-        option_price = max(0, (price - 22900) + 120)
+        option_price = max(50, abs(price - 22900) * 0.5)
 
     elif rsi > 52:
         signal = "BUY"
         option = "NIFTY 7APR 23000 PE"
-        option_price = max(0, (23000 - price) + 120)
+        option_price = max(50, abs(price - 22900) * 0.5)
 
     return signal, option, price, rsi, option_price
 
