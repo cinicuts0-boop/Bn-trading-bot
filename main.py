@@ -19,26 +19,40 @@ headers = {
 
 # Get option chain
 def get_option_price():
-    url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+    try:
+        url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
 
-    session = requests.Session()
-    session.get("https://www.nseindia.com", headers=headers)
+        session = requests.Session()
 
-    res = session.get(url, headers=headers)
+        # Step 1: open NSE homepage (cookie set)
+        session.get("https://www.nseindia.com", headers=headers, timeout=5)
 
-    data = res.json()
+        # Step 2: get option chain
+        res = session.get(url, headers=headers, timeout=5)
 
-    for item in data["records"]["data"]:
-        if item["strikePrice"] == 22900:
-            ce = item.get("CE", {})
-            pe = item.get("PE", {})
+        data = res.json()
 
-            ce_price = ce.get("lastPrice")
-            pe_price = pe.get("lastPrice")
+        # ✅ SAFE CHECK
+        if "records" not in data:
+            print("❌ NSE blocked / invalid response")
+            return None, None
 
-            return ce_price, pe_price
+        for item in data["records"]["data"]:
+            if item.get("strikePrice") == 22900:
 
-    return None, None
+                ce = item.get("CE", {})
+                pe = item.get("PE", {})
+
+                ce_price = ce.get("lastPrice")
+                pe_price = pe.get("lastPrice")
+
+                return ce_price, pe_price
+
+        return None, None
+
+    except Exception as e:
+        print("❌ Fetch Error:", e)
+        return None, None
 
 # BOT
 def run_bot():
