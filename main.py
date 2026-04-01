@@ -46,25 +46,30 @@ def strategy(price_history):
 
     last = df.iloc[-1]
 
-    price = float(last["close"])
+    price = float(last["close"])   # USD crude
     rsi = float(last["rsi"])
+
+    # 🔥 Convert to MCX (approx)
+    mcx_price = price * 80
 
     signal = None
     option = None
     option_price = None
 
-    # 🔥 IMPROVED LOGIC
+    # 🔥 BETTER LOGIC
     if rsi < 45:
         signal = "BUY"
         option = "CRUDEOIL 9900 CE"
-        option_price = max(50, price * 2)   # scaled premium
+
+        option_price = max(100, abs(mcx_price - 9900) * 0.35)
 
     elif rsi > 55:
         signal = "BUY"
         option = "CRUDEOIL 7500 PE"
-        option_price = max(50, price * 2)
 
-    return signal, option, price, rsi, option_price
+        option_price = max(100, abs(7500 - mcx_price) * 0.35)
+
+    return signal, option, mcx_price, rsi, option_price
 
 # 🤖 BOT
 def run_bot():
