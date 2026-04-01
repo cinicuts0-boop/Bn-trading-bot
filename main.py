@@ -42,79 +42,89 @@ def get_data():
 
         return df
 
-    except:
+    except Exception as e:
+        print("Data Error:", e)
         return None
 
-# 📈 STRATEGY
+# 📈 STRATEGY (UPDATED 🔥)
 def strategy(df):
-    df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
-    df["ema20"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
-    df["ema50"] = ta.trend.EMAIndicator(df["close"], window=50).ema_indicator()
+    try:
+        df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
 
-    last = df.iloc[-1]
+        last = df.iloc[-1]
 
-    price = float(last["close"])
-    rsi = float(last["rsi"])
-    ema20 = float(last["ema20"])
-    ema50 = float(last["ema50"])
+        price = float(last["close"])
+        rsi = float(last["rsi"])
 
-    signal = None
-    option = None
+        signal = None
+        option = None
 
-    # 🔥 OPTIONS LOGIC
-    if rsi < 40 and ema20 > ema50:
-        signal = "BUY"
-        option = "22900 CE"
+        # 🔥 DIRECT OPTIONS LOGIC
+        if rsi < 45:
+            signal = "BUY"
+            option = "NIFTY 7APR 22900 CE"
 
-    elif rsi > 60 and ema20 < ema50:
-        signal = "BUY"
-        option = "23000 PE"
+        elif rsi > 55:
+            signal = "BUY"
+            option = "NIFTY 7APR 23000 PE"
 
-    return signal, option, price, rsi
+        return signal, option, price, rsi
+
+    except Exception as e:
+        print("Strategy Error:", e)
+        return None, None, None, None
 
 # 🤖 BOT
 def run_bot():
-    print("🚀 OPTIONS PRO BOT STARTED")
+    print("🚀 OPTIONS BOT (CE/PE) STARTED")
 
     last_signal = None
 
     while True:
-        print("⏳ Checking market...")
+        try:
+            print("⏳ Checking market...")
 
-        df = get_data()
+            df = get_data()
 
-        if df is None:
-            print("❌ Data error")
-            time.sleep(10)
-            continue
+            if df is None:
+                print("❌ Data error")
+                time.sleep(10)
+                continue
 
-        signal, option, price, rsi = strategy(df)
+            signal, option, price, rsi = strategy(df)
 
-        print(f"NIFTY: {price} RSI: {rsi}")
+            if price is None:
+                print("⚠️ Strategy failed")
+                time.sleep(10)
+                continue
 
-        if signal and signal != last_signal:
+            print(f"📊 NIFTY: {price} | RSI: {round(rsi,2)}")
 
-            msg = f"""
+            if signal and signal != last_signal:
+
+                msg = f"""
 📊 NIFTY OPTIONS SIGNAL
 
-🔔 {signal} {option}
+🔔 {signal}
+
+🎯 {option}
 
 💰 NIFTY: {round(price,2)}
-
-🎯 TRADE:
-👉 {option}
-
 📈 RSI: {round(rsi,2)}
 """
 
-            send_telegram(msg)
-            print("🔥 Signal Sent:", option)
+                send_telegram(msg)
+                print("🔥 Signal Sent:", option)
 
-            last_signal = signal
+                last_signal = signal
 
-        else:
-            print("😴 No Trade")
+            else:
+                print("😴 No Trade")
 
-        time.sleep(60)
+            time.sleep(60)
+
+        except Exception as e:
+            print("Bot Error:", e)
+            time.sleep(10)
 
 run_bot()
