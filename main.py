@@ -1,41 +1,35 @@
 
-
 import yfinance as yf
 import pandas as pd
 import ta
 import time
 import requests
 
-# 🔐 Telegram Settings (⚠️ change token after testing)
 TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
 
-# 📤 Telegram Send
+# 📤 Telegram
 def send_telegram(msg):
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        res = requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
-        print("📤 Telegram Status:", res.status_code)
+        requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
+        print("📤 Sent")
     except Exception as e:
-        print("❌ Telegram Error:", e)
+        print("Telegram Error:", e)
 
-# 📊 NIFTY Data Fetch
+# 📊 NIFTY DATA
 def get_data():
     try:
         df = yf.download("^NSEI", interval="5m", period="1d", progress=False)
 
-        # ✅ Empty check
         if df is None or df.empty:
-            print("❌ Empty data from Yahoo")
             return None
 
-        # ✅ FIX: MultiIndex columns handle
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
         df = df.reset_index()
 
-        # ✅ Rename columns properly
         df = df.rename(columns={
             "Open": "open",
             "High": "high",
@@ -44,107 +38,83 @@ def get_data():
             "Volume": "volume"
         })
 
-        # ✅ Check close column
-        if "close" not in df.columns:
-            print("❌ Close column missing")
-            return None
-
         df["close"] = df["close"].astype(float)
 
         return df
 
-    except Exception as e:
-        print("❌ Data Error:", e)
+    except:
         return None
 
-# 📈 Strategy
+# 📈 STRATEGY
 def strategy(df):
-    try:
-        df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
-        df["ema20"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
-        df["ema50"] = ta.trend.EMAIndicator(df["close"], window=50).ema_indicator()
+    df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
+    df["ema20"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
+    df["ema50"] = ta.trend.EMAIndicator(df["close"], window=50).ema_indicator()
 
-        last = df.iloc[-1]
+    last = df.iloc[-1]
 
-        price = float(last["close"])
-        rsi = float(last["rsi"])
-        ema20 = float(last["ema20"])
-        ema50 = float(last["ema50"])
+    price = float(last["close"])
+    rsi = float(last["rsi"])
+    ema20 = float(last["ema20"])
+    ema50 = float(last["ema50"])
 
-        signal = None
+    signal = None
+    option = None
 
-        if rsi < 40 and ema20 > ema50:
-            signal = "BUY"
-        elif rsi > 60 and ema20 < ema50:
-            signal = "SELL"
+    # 🔥 OPTIONS LOGIC
+    if rsi < 40 and ema20 > ema50:
+        signal = "BUY"
+        option = "22900 CE"
 
-        return signal, price, rsi
+    elif rsi > 60 and ema20 < ema50:
+        signal = "BUY"
+        option = "23000 PE"
 
-    except Exception as e:
-        print("❌ Strategy Error:", e)
-        return None, None, None
+    return signal, option, price, rsi
 
-# 🤖 Bot Runner
+# 🤖 BOT
 def run_bot():
-    print("🚀 REAL NIFTY Bot Started")
+    print("🚀 OPTIONS PRO BOT STARTED")
 
     last_signal = None
 
     while True:
-        try:
-            print("⏳ Fetching NIFTY data...")
+        print("⏳ Checking market...")
 
-            df = get_data()
+        df = get_data()
 
-            if df is None:
-                time.sleep(10)
-                continue
+        if df is None:
+            print("❌ Data error")
+            time.sleep(10)
+            continue
 
-            signal, price, rsi = strategy(df)
+        signal, option, price, rsi = strategy(df)
 
-            if price is None:
-                print("⚠️ Strategy failed")
-                time.sleep(10)
-                continue
+        print(f"NIFTY: {price} RSI: {rsi}")
 
-            print(f"📊 Price: {price} | RSI: {round(rsi,2)}")
+        if signal and signal != last_signal:
 
-            if signal and signal != last_signal:
+            msg = f"""
+📊 NIFTY OPTIONS SIGNAL
 
-                if signal == "BUY":
-                    tp1 = price + 50
-                    tp2 = price + 100
-                    sl = price - 30
-                else:
-                    tp1 = price - 50
-                    tp2 = price - 100
-                    sl = price + 30
+🔔 {signal} {option}
 
-                msg = f"""
-📊 NIFTY SIGNAL
+💰 NIFTY: {round(price,2)}
 
-🔔 {signal}
-💰 Entry: {round(price,2)}
-
-🎯 TP1: {round(tp1,2)}
-🎯 TP2: {round(tp2,2)}
-🛑 SL : {round(sl,2)}
+🎯 TRADE:
+👉 {option}
 
 📈 RSI: {round(rsi,2)}
 """
 
-                send_telegram(msg)
-                print("🔥 Signal Sent:", signal)
+            send_telegram(msg)
+            print("🔥 Signal Sent:", option)
 
-                last_signal = signal
-            else:
-                print("😴 No Signal")
+            last_signal = signal
 
-            time.sleep(60)
+        else:
+            print("😴 No Trade")
 
-        except Exception as e:
-            print("❌ Bot Error:", e)
-            time.sleep(10)
+        time.sleep(60)
 
-# ▶️ Run
 run_bot()
