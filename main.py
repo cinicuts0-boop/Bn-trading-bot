@@ -4,7 +4,7 @@ import pandas as pd
 import time
 import ta
 
-TELEGRAM_TOKEN = ""8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU""
+TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
 
 def send_telegram(msg):
