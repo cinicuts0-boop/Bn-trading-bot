@@ -24,36 +24,35 @@ def get_option_price():
 
         session = requests.Session()
 
-        # Step 1: open NSE homepage (cookie set)
         session.get("https://www.nseindia.com", headers=headers, timeout=5)
-
-        # Step 2: get option chain
         res = session.get(url, headers=headers, timeout=5)
 
         data = res.json()
 
-        # ✅ SAFE CHECK
         if "records" not in data:
             print("❌ NSE blocked / invalid response")
             return None, None
 
+        ce_price = None
+        pe_price = None
+
         for item in data["records"]["data"]:
+
+            # ✅ 22900 CE
             if item.get("strikePrice") == 22900:
-
                 ce = item.get("CE", {})
-                pe = item.get("PE", {})
-
                 ce_price = ce.get("lastPrice")
+
+            # ✅ 23000 PE
+            if item.get("strikePrice") == 23000:
+                pe = item.get("PE", {})
                 pe_price = pe.get("lastPrice")
 
-                return ce_price, pe_price
-
-        return None, None
+        return ce_price, pe_price
 
     except Exception as e:
         print("❌ Fetch Error:", e)
         return None, None
-
 # BOT
 def run_bot():
     print("🚀 LIVE NSE OPTION BOT STARTED")
