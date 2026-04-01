@@ -1,5 +1,4 @@
 
-
 import requests
 import pandas as pd
 import ta
@@ -18,7 +17,7 @@ def send_telegram(msg):
     except Exception as e:
         print("Telegram Error:", e)
 
-# 🛢️ Crude Price
+# 🔥 REAL Crude Oil Price (Yahoo)
 def get_crude_price():
     try:
         df = yf.download("CL=F", period="1d", interval="1m", progress=False)
@@ -26,14 +25,16 @@ def get_crude_price():
         if df is None or df.empty:
             return None
 
+        # MultiIndex fix
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
 
         price = float(df["Close"].iloc[-1])
+
         return price
 
     except Exception as e:
-        print("❌ Price Error:", e)
+        print("❌ Yahoo Error:", e)
         return None
 
 # 📈 Strategy
@@ -44,35 +45,34 @@ def strategy(price_history):
 
     last = df.iloc[-1]
 
-    price = float(last["close"])
+    price = float(last["close"])   # USD crude
     rsi = float(last["rsi"])
 
-    # 🔥 USD → MCX convert
+    # 🔥 Convert to MCX (approx)
     mcx_price = price * 80
-
-    # 🔥 AUTO STRIKE
-    strike = round(mcx_price / 100) * 100
 
     signal = None
     option = None
     option_price = None
 
-    # 🔥 SMART LOGIC
+    # 🔥 BETTER LOGIC
     if rsi < 45:
         signal = "BUY"
-        option = f"CRUDEOIL {int(strike)} CE"
-        option_price = max(120, abs(mcx_price - strike) * 0.4)
+        option = "CRUDEOIL 9900 CE"
+
+        option_price = max(100, abs(mcx_price - 9900) * 0.35)
 
     elif rsi > 55:
         signal = "BUY"
-        option = f"CRUDEOIL {int(strike)} PE"
-        option_price = max(120, abs(mcx_price - strike) * 0.4)
+        option = "CRUDEOIL 7500 PE"
+
+        option_price = max(100, abs(7500 - mcx_price) * 0.35)
 
     return signal, option, mcx_price, rsi, option_price
 
 # 🤖 BOT
 def run_bot():
-    print("🚀 AUTO STRIKE PRO BOT STARTED")
+    print("🚀 CRUDEOIL LIVE + SIGNAL PRO BOT STARTED")
 
     price_history = []
     last_signal = None
@@ -88,31 +88,33 @@ def run_bot():
 
             price_history.append(price)
 
+            # keep last 100 candles only
             if len(price_history) > 100:
                 price_history.pop(0)
 
-            if len(price_history) < 14:
+            # Need minimum data for RSI
+            if len(price_history) < 20:
                 print("⏳ Collecting data...")
                 time.sleep(5)
                 continue
 
             signal, option, price, rsi, op = strategy(price_history)
 
-            print(f"🛢️ CRUDE (MCX): {price} | RSI: {round(rsi,2)}")
+            print(f"🛢️ CRUDE: {price} | RSI: {round(rsi,2)}")
 
             if signal and signal != last_signal:
 
-                sl = op - 40
-                tp1 = op + 50
-                tp2 = op + 100
+                sl = op - 30
+                tp1 = op + 40
+                tp2 = op + 80
 
                 msg = f"""
-🚀 AUTO STRIKE SIGNAL
+🚀 CRUDEOIL SIGNAL
 
 🔔 {signal}
 🎯 {option}
 
-💰 Crude (MCX): {round(price,2)}
+💰 Crude Price: {round(price,2)}
 💸 Entry: ₹{round(op,2)}
 
 🎯 TP1: ₹{round(tp1,2)}
