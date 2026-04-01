@@ -1,13 +1,15 @@
 
+
 import requests
 import pandas as pd
 import ta
 import time
+import yfinance as yf
 
 TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
 
-# Telegram
+# 📤 Telegram
 def send_telegram(msg):
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -16,18 +18,24 @@ def send_telegram(msg):
     except Exception as e:
         print("Telegram Error:", e)
 
-# 🔥 Crude Oil Price (free API)
+# 🔥 REAL Crude Oil Price (Yahoo)
 def get_crude_price():
     try:
-        url = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT"
-        res = requests.get(url)
-        data = res.json()
+        df = yf.download("CL=F", period="1d", interval="1m", progress=False)
 
-        # ❗ Replace with crude logic (dummy for now)
-        price = float(data["price"]) / 10   # simulate crude
+        if df is None or df.empty:
+            return None
+
+        # MultiIndex fix
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
+        price = float(df["Close"].iloc[-1])
 
         return price
-    except:
+
+    except Exception as e:
+        print("❌ Yahoo Error:", e)
         return None
 
 # 📈 Strategy
@@ -45,16 +53,16 @@ def strategy(price_history):
     option = None
     option_price = None
 
-    # 🔥 SIGNAL LOGIC
+    # 🔥 IMPROVED LOGIC
     if rsi < 45:
         signal = "BUY"
         option = "CRUDEOIL 9900 CE"
-        option_price = max(50, abs(price - 9900) * 0.6)
+        option_price = max(50, price * 2)   # scaled premium
 
     elif rsi > 55:
         signal = "BUY"
         option = "CRUDEOIL 7500 PE"
-        option_price = max(50, abs(7500 - price) * 0.6)
+        option_price = max(50, price * 2)
 
     return signal, option, price, rsi, option_price
 
@@ -76,6 +84,10 @@ def run_bot():
 
             price_history.append(price)
 
+            # keep last 100 candles only
+            if len(price_history) > 100:
+                price_history.pop(0)
+
             # Need minimum data for RSI
             if len(price_history) < 20:
                 print("⏳ Collecting data...")
@@ -84,7 +96,7 @@ def run_bot():
 
             signal, option, price, rsi, op = strategy(price_history)
 
-            print(f"CRUDE: {price} RSI: {rsi}")
+            print(f"🛢️ CRUDE: {price} | RSI: {round(rsi,2)}")
 
             if signal and signal != last_signal:
 
@@ -118,7 +130,7 @@ def run_bot():
             time.sleep(10)
 
         except Exception as e:
-            print("Bot Error:", e)
+            print("❌ Bot Error:", e)
             time.sleep(10)
 
 run_bot()
