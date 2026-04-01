@@ -59,12 +59,12 @@ def strategy(price_history):
     if rsi < 45:
         signal = "BUY"
         option = f"CRUDEOIL {int(strike)} CE"
-        option_price = max(120, abs(mcx_price - strike) * 0.4)
+        option_price = max(100, intrinsic + (mcx_price * 0.02))
 
     elif rsi > 55:
         signal = "BUY"
         option = f"CRUDEOIL {int(strike)} PE"
-        option_price = max(120, abs(mcx_price - strike) * 0.4)
+        option_price = max(100, intrinsic + (mcx_price * 0.02))
 
     return signal, option, mcx_price, rsi, option_price
 
