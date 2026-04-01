@@ -58,25 +58,28 @@ def strategy(df):
 
         signal = None
         option = None
+        option_price = None
 
-        # 🔥 DIRECT OPTIONS LOGIC
-        if rsi < 45:
+        # 🔥 OPTIONS LOGIC + PRICE
+        if rsi < 48:
             signal = "BUY"
             option = "NIFTY 7APR 22900 CE"
+            option_price = (price - 22900) + 120   # adjust value if needed
 
-        elif rsi > 55:
+        elif rsi > 52:
             signal = "BUY"
             option = "NIFTY 7APR 23000 PE"
+            option_price = (23000 - price) + 120
 
-        return signal, option, price, rsi
+        return signal, option, price, rsi, option_price
 
     except Exception as e:
         print("Strategy Error:", e)
-        return None, None, None, None
+        return None, None, None, None, None
 
 # 🤖 BOT
 def run_bot():
-    print("🚀 OPTIONS BOT (CE/PE) STARTED")
+    print("🚀 OPTIONS BOT (WITH PRICE) STARTED")
 
     last_signal = None
 
@@ -91,7 +94,7 @@ def run_bot():
                 time.sleep(10)
                 continue
 
-            signal, option, price, rsi = strategy(df)
+            signal, option, price, rsi, option_price = strategy(df)
 
             if price is None:
                 print("⚠️ Strategy failed")
@@ -110,6 +113,8 @@ def run_bot():
 🎯 {option}
 
 💰 NIFTY: {round(price,2)}
+💸 Option Price: ₹{round(option_price,2)}
+
 📈 RSI: {round(rsi,2)}
 """
 
