@@ -1,11 +1,12 @@
 
+
 import yfinance as yf
 import pandas as pd
 import ta
 import time
 import requests
 
-# 🔐 Telegram সেটিং
+# 🔐 Telegram Settings (⚠️ change token after testing)
 TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
 
@@ -23,19 +24,29 @@ def get_data():
     try:
         df = yf.download("^NSEI", interval="5m", period="1d", progress=False)
 
-        # ✅ Safety check
+        # ✅ Empty check
         if df is None or df.empty:
             print("❌ Empty data from Yahoo")
             return None
 
+        # ✅ FIX: MultiIndex columns handle
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
         df = df.reset_index()
 
-        # ✅ Normalize column names
-        df.columns = [col.lower() for col in df.columns]
+        # ✅ Rename columns properly
+        df = df.rename(columns={
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "volume"
+        })
 
-        # Ensure required columns exist
+        # ✅ Check close column
         if "close" not in df.columns:
-            print("❌ 'close' column missing")
+            print("❌ Close column missing")
             return None
 
         df["close"] = df["close"].astype(float)
@@ -91,7 +102,6 @@ def run_bot():
 
             signal, price, rsi = strategy(df)
 
-            # ✅ Safety check
             if price is None:
                 print("⚠️ Strategy failed")
                 time.sleep(10)
