@@ -48,34 +48,28 @@ def get_data():
 
 # 📈 STRATEGY (UPDATED 🔥)
 def strategy(df):
-    try:
-        df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
+    df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
 
-        last = df.iloc[-1]
+    last = df.iloc[-1]
 
-        price = float(last["close"])
-        rsi = float(last["rsi"])
+    price = float(last["close"])
+    rsi = float(last["rsi"])
 
-        signal = None
-        option = None
-        option_price = None
+    signal = None
+    option = None
+    option_price = None
 
-        # 🔥 OPTIONS LOGIC + PRICE
-        if rsi < 48:
-            signal = "BUY"
-            option = "NIFTY 7APR 22900 CE"
-            option_price = (price - 22900) + 120   # adjust value if needed
+    if rsi < 48:
+        signal = "BUY"
+        option = "NIFTY 7APR 22900 CE"
+        option_price = max(0, (price - 22900) + 120)
 
-        elif rsi > 52:
-            signal = "BUY"
-            option = "NIFTY 7APR 23000 PE"
-            option_price = (23000 - price) + 120
+    elif rsi > 52:
+        signal = "BUY"
+        option = "NIFTY 7APR 23000 PE"
+        option_price = max(0, (23000 - price) + 120)
 
-        return signal, option, price, rsi, option_price
-
-    except Exception as e:
-        print("Strategy Error:", e)
-        return None, None, None, None, None
+    return signal, option, price, rsi, option_price
 
 # 🤖 BOT
 def run_bot():
