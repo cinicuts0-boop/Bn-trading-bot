@@ -63,6 +63,13 @@ def run_bot():
 
     while True:
         df = get_data()
+
+        # ✅ STOP if API failed
+        if df is None:
+            print("⚠️ Data fetch failed. Retrying...")
+            time.sleep(60)
+            continue   # 🔥 VERY IMPORTANT
+
         signal, price, rsi = strategy(df)
 
         print(f"Price: {price} RSI: {rsi}")
@@ -81,12 +88,10 @@ def run_bot():
 📊 NIFTY SIGNAL
 
 🔔 {signal}
-
 💰 Entry: {price}
 🎯 TP1: {tp1}
 🎯 TP2: {tp2}
 🛑 SL : {sl}
-
 📈 RSI: {round(rsi,2)}
 """
 
@@ -98,5 +103,3 @@ def run_bot():
             print("No new signal")
 
         time.sleep(60)
-
-run_bot()
