@@ -1,23 +1,48 @@
 
+
 import requests
 import pandas as pd
 import ta
 import time
 import yfinance as yf
 
-# 🔥 TELEGRAM
 TELEGRAM_TOKEN = "8633538252:AAGIDwplfgtsGcGvZPCJmMrnX_R0dGOzOAc"
 CHAT_ID = "8007854479"
 
-# 🔥 MANUAL STRIKE CONTROL
-CURRENT_STRIKE = 7500
-OPTION_TYPE = "PE"   # CE or PE
+last_update_id = None
+manual_price = None
 
 def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
-# 🔥 GET PRICE
+# 🔥 READ TELEGRAM COMMAND
+def read_telegram():
+    global last_update_id, manual_price
+
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+    res = requests.get(url).json()
+
+    for update in res["result"]:
+        uid = update["update_id"]
+
+        if last_update_id is None or uid > last_update_id:
+            last_update_id = uid
+
+            try:
+                text = update["message"]["text"]
+
+                # 🔥 COMMAND
+                if text.startswith("/setprice"):
+                    price = float(text.split(" ")[1])
+                    manual_price = price
+
+                    send_telegram(f"✅ Price updated: ₹{price}")
+
+            except:
+                pass
+
+# 🔥 FAKE PRICE (signal only)
 def get_crude_price():
     df = yf.download("CL=F", period="1d", interval="1m", progress=False)
 
@@ -29,61 +54,43 @@ def get_crude_price():
 
     return float(df["Close"].iloc[-1])
 
-# 🔥 MANUAL OPTION
-def get_manual_option():
-    return f"CRUDEOIL {CURRENT_STRIKE} {OPTION_TYPE}"
-
 # 📈 STRATEGY
 def strategy(price_history):
     df = pd.DataFrame(price_history, columns=["close"])
 
     df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
-    df["ema"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
-
-    macd = ta.trend.MACD(df["close"])
-    df["macd"] = macd.macd()
-    df["signal_line"] = macd.macd_signal()
-
     last = df.iloc[-1]
 
     price = float(last["close"])
     rsi = float(last["rsi"])
-    ema = float(last["ema"])
 
     signal = None
-    option = None
 
-    # 🔥 LOGIC
-    if rsi < 40 and price > ema and last["macd"] > last["signal_line"]:
+    if rsi < 45:
         signal = "BUY"
-        option = get_manual_option()
+    elif rsi > 55:
+        signal = "SELL"
 
-    elif rsi > 60 and price < ema and last["macd"] < last["signal_line"]:
-        signal = "BUY"
-        option = get_manual_option()
+    return signal, price, rsi
 
-    return signal, option, price, rsi
-
-# 🔥 ENTRY ZONE
-def get_entry_zone(price):
-    return round(price - 0.5, 2), round(price + 0.5, 2)
-
-# 🔥 TARGETS
+# 🔥 TARGET CALCULATION (USE MANUAL PRICE)
 def get_targets(price):
-    sl = round(price - 1.0, 2)
-    tp1 = round(price + 1.5, 2)
-    tp2 = round(price + 3.0, 2)
+    sl = round(price - 2, 2)
+    tp1 = round(price + 3, 2)
+    tp2 = round(price + 6, 2)
     return sl, tp1, tp2
 
 # 🤖 BOT
 def run_bot():
-    print("🚀 MANUAL STRIKE BOT STARTED")
+    print("🚀 PRICE INPUT BOT STARTED")
 
     price_history = []
     last_signal_time = 0
 
     while True:
         try:
+            read_telegram()  # 🔥 check commands
+
             price = get_crude_price()
 
             if price is None:
@@ -95,45 +102,40 @@ def run_bot():
             if len(price_history) > 100:
                 price_history.pop(0)
 
-            if len(price_history) < 30:
-                print("Collecting data...")
+            if len(price_history) < 20:
+                print("Collecting...")
                 time.sleep(5)
                 continue
 
-            signal, option, price, rsi = strategy(price_history)
+            signal, price, rsi = strategy(price_history)
 
-            print("Price:", price, "RSI:", round(rsi, 2))
+            print("Signal:", signal, "RSI:", round(rsi,2))
 
-            # 🔥 SIGNAL
-            if signal and (time.time() - last_signal_time > 300):
+            # 🔥 USE MANUAL PRICE
+            if signal and manual_price:
 
-                entry_low, entry_high = get_entry_zone(price)
-                sl, tp1, tp2 = get_targets(price)
+                sl, tp1, tp2 = get_targets(manual_price)
 
                 msg = f"""
 🚀 CRUDEOIL SIGNAL
 
 🔔 {signal}
-🎯 {option}
 
-📥 ENTRY ZONE: ₹{entry_low} - ₹{entry_high}
+💰 Entry (Manual): ₹{manual_price}
 
 🎯 TP1: ₹{tp1}
 🎯 TP2: ₹{tp2}
 🛑 SL: ₹{sl}
 
-📌 Manual Strike: {CURRENT_STRIKE} {OPTION_TYPE}
-
 📈 RSI: {round(rsi,2)}
 """
 
                 send_telegram(msg)
-                print("🔥 Signal Sent")
 
-                last_signal_time = time.time()
+                time.sleep(60)
 
             else:
-                print("No trade")
+                print("Waiting price input...")
 
             time.sleep(10)
 
