@@ -163,8 +163,9 @@ def run_bot():
             time.sleep(10)
 
 last_update_id = None
-manual_price = None
 run_bot()
+manual_price = None
+
 
 def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
