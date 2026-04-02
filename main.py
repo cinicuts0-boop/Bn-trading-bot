@@ -12,7 +12,7 @@ def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
-# 🔥 Crude price (USD)
+# 🔥 Crude price
 def get_crude_price():
     df = yf.download("CL=F", period="1d", interval="1m", progress=False)
 
@@ -37,23 +37,33 @@ def strategy(price_history):
 
     last = df.iloc[-1]
 
-    price = float(last["close"])   # USD crude
+    price = float(last["close"])
     rsi = float(last["rsi"])
     ema = float(last["ema"])
 
     signal = None
     option = None
 
-    # ✅ Improved logic
     if rsi < 40 and price > ema and last["macd"] > last["signal_line"]:
         signal = "BUY"
-        option = "CRUDEOIL PE (Check Market Price)"
+        option = "CRUDEOIL PE"
 
     elif rsi > 60 and price < ema and last["macd"] < last["signal_line"]:
         signal = "BUY"
-        option = "CRUDEOIL CE (Check Market Price)"
+        option = "CRUDEOIL CE"
 
     return signal, option, price, rsi
+
+# 🔥 Entry Zone
+def get_entry_zone(price):
+    return round(price - 0.5, 2), round(price + 0.5, 2)
+
+# 🔥 Targets
+def get_targets(price):
+    sl = round(price - 1.0, 2)
+    tp1 = round(price + 1.5, 2)
+    tp2 = round(price + 3.0, 2)
+    return sl, tp1, tp2
 
 # 🤖 BOT
 def run_bot():
@@ -84,13 +94,13 @@ def run_bot():
 
             print(f"USD Crude: {price} | RSI: {round(rsi,2)}")
 
-            # ✅ Cooldown 5 min
-if signal and (time.time() - last_signal_time > 300):
+            # ✅ Correct indentation (INSIDE TRY)
+            if signal and (time.time() - last_signal_time > 300):
 
-    entry_low, entry_high = get_entry_zone(price)
-    sl, tp1, tp2 = get_targets(price)
+                entry_low, entry_high = get_entry_zone(price)
+                sl, tp1, tp2 = get_targets(price)
 
-    msg = f"""
+                msg = f"""
 🚀 CRUDEOIL PRO SIGNAL
 
 🔔 {signal}
@@ -107,8 +117,8 @@ if signal and (time.time() - last_signal_time > 300):
 📈 RSI: {round(rsi,2)}
 """
 
-    send_telegram(msg)
-    last_signal_time = time.time()
+                send_telegram(msg)
+                last_signal_time = time.time()
 
             else:
                 print("No trade")
