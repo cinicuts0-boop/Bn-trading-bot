@@ -86,16 +86,15 @@ def run_bot():
 
             # ✅ Cooldown 5 min
             if signal and (time.time() - last_signal_time > 300):
-
-                msg = f"""
+msg = f"""
 🚀 CRUDEOIL SIGNAL
 
 🔔 {signal}
 🎯 {option}
 
-💰 USD Crude Price: {round(price,2)}
+💰 Live Price: Check Chart
 
-📌 MCX chartல price பார்த்து entry எடுக்கவும்
+📌 Chartல current price பார்த்து entry எடுக்கவும்
 
 📈 RSI: {round(rsi,2)}
 """
