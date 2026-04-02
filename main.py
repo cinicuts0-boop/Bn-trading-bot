@@ -85,24 +85,30 @@ def run_bot():
             print(f"USD Crude: {price} | RSI: {round(rsi,2)}")
 
             # ✅ Cooldown 5 min
-            if signal and (time.time() - last_signal_time > 300):
-msg = f"""
-🚀 CRUDEOIL SIGNAL
+if signal and (time.time() - last_signal_time > 300):
+
+    entry_low, entry_high = get_entry_zone(price)
+    sl, tp1, tp2 = get_targets(price)
+
+    msg = f"""
+🚀 CRUDEOIL PRO SIGNAL
 
 🔔 {signal}
 🎯 {option}
 
-💰 Live Price: Check Chart
+📥 ENTRY ZONE: ₹{entry_low} - ₹{entry_high}
 
-📌 Chartல current price பார்த்து entry எடுக்கவும்
+🎯 TP1: ₹{tp1}
+🎯 TP2: ₹{tp2}
+🛑 SL: ₹{sl}
+
+📌 Chart பார்த்து confirm பண்ணி entry எடுக்கவும்
 
 📈 RSI: {round(rsi,2)}
 """
 
-                send_telegram(msg)
-                print("🔥 Signal Sent")
-
-                last_signal_time = time.time()
+    send_telegram(msg)
+    last_signal_time = time.time()
 
             else:
                 print("No trade")
