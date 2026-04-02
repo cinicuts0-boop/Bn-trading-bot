@@ -298,4 +298,5 @@ def run_bot():
             print("ERROR:", e)
             time.sleep(10)
 
-run_bot()
+if __name__ == "__main__":
+    run_bot()
