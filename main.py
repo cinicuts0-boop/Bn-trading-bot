@@ -47,7 +47,7 @@ def strategy(price_history):
     macd_val = float(last["macd"])
     signal_val = float(last["signal"])
 
-    mcx_price = price * 80
+    mcx_price = price 
 
     trade = None
     option = None
@@ -100,10 +100,10 @@ def run_bot():
             # Cooldown 5 min
             if signal and (time.time() - last_signal_time > 300):
 
-                entry = 120
-                sl = entry - 30
-                tp1 = entry + 40
-                tp2 = entry + 80
+                entry = "Market Price" 
+                sl = entry - 5
+                tp1 = entry + 10
+                tp2 = entry + 20
 
                 msg = f"""
 🚀 CRUDEOIL PRO SIGNAL
