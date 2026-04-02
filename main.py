@@ -4,7 +4,6 @@ import pandas as pd
 import ta
 import time
 import yfinance as yf
-import datetime
 
 TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
@@ -13,11 +12,8 @@ def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
-def market_open():
-    now = datetime.datetime.now().time()
-    return now >= datetime.time(9, 0) and now <= datetime.time(23, 30)
-
-def get_price():
+# 🔥 Crude price (USD)
+def get_crude_price():
     df = yf.download("CL=F", period="1d", interval="1m", progress=False)
 
     if df is None or df.empty:
@@ -28,56 +24,47 @@ def get_price():
 
     return float(df["Close"].iloc[-1])
 
+# 📈 Strategy
 def strategy(price_history):
     df = pd.DataFrame(price_history, columns=["close"])
 
-    # Indicators
     df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
     df["ema"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
 
     macd = ta.trend.MACD(df["close"])
     df["macd"] = macd.macd()
-    df["signal"] = macd.macd_signal()
+    df["signal_line"] = macd.macd_signal()
 
     last = df.iloc[-1]
 
-    price = float(last["close"])
+    price = float(last["close"])   # USD crude
     rsi = float(last["rsi"])
     ema = float(last["ema"])
-    macd_val = float(last["macd"])
-    signal_val = float(last["signal"])
 
-    mcx_price = price 
-
-    trade = None
+    signal = None
     option = None
 
-    # BUY CE
-    if rsi < 40 and price > ema and macd_val > signal_val:
-        trade = "BUY"
-        option = "CRUDEOIL CE"
+    # ✅ Improved logic
+    if rsi < 40 and price > ema and last["macd"] > last["signal_line"]:
+        signal = "BUY"
+        option = "CRUDEOIL PE (Check Market Price)"
 
-    # BUY PE
-    elif rsi > 60 and price < ema and macd_val < signal_val:
-        trade = "BUY"
-        option = "CRUDEOIL PE"
+    elif rsi > 60 and price < ema and last["macd"] < last["signal_line"]:
+        signal = "BUY"
+        option = "CRUDEOIL CE (Check Market Price)"
 
-    return trade, option, mcx_price, rsi
+    return signal, option, price, rsi
 
+# 🤖 BOT
 def run_bot():
-    print("🚀 ADVANCED CRUDE BOT STARTED")
+    print("🚀 FIXED CRUDE BOT STARTED")
 
     price_history = []
     last_signal_time = 0
 
     while True:
         try:
-            if not market_open():
-                print("⏰ Market Closed")
-                time.sleep(60)
-                continue
-
-            price = get_price()
+            price = get_crude_price()
 
             if price is None:
                 time.sleep(10)
@@ -95,30 +82,22 @@ def run_bot():
 
             signal, option, price, rsi = strategy(price_history)
 
-            print(f"Price: {price} | RSI: {round(rsi,2)}")
+            print(f"USD Crude: {price} | RSI: {round(rsi,2)}")
 
-            # Cooldown 5 min
+            # ✅ Cooldown 5 min
             if signal and (time.time() - last_signal_time > 300):
 
-                entry = "Market Price" 
-                sl = entry - 5
-                tp1 = entry + 10
-                tp2 = entry + 20
-
                 msg = f"""
-🚀 CRUDEOIL PRO SIGNAL
+🚀 CRUDEOIL SIGNAL
 
 🔔 {signal}
 🎯 {option}
 
-💰 Price: {round(price,2)}
-💸 Entry: ₹{entry}
+💰 USD Crude Price: {round(price,2)}
 
-🎯 TP1: ₹{tp1}
-🎯 TP2: ₹{tp2}
-🛑 SL: ₹{sl}
+📌 MCX chartல price பார்த்து entry எடுக்கவும்
 
-📊 RSI: {round(rsi,2)}
+📈 RSI: {round(rsi,2)}
 """
 
                 send_telegram(msg)
