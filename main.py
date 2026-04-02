@@ -1,149 +1,142 @@
-# 🚀 AUTO STRIKE PRO DASHBOARD + LIVE SIGNAL
-import yfinance as yf
+
+
+import requests
 import pandas as pd
 import ta
 import time
-import requests
-from flask import Flask, render_template_string
+import yfinance as yf
 
-# ==============================
-# 🔧 User Config
 TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
 
-CRUDE_CE_STRIKE = 9900
-CRUDE_PE_STRIKE = 7500
-NIFTY_CE_STRIKE = 22900
-NIFTY_PE_STRIKE = 23000
-# ==============================
-
-# Telegram alert
+# 📤 Telegram
 def send_telegram(msg):
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
         requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
-        print("📤 Telegram Sent")
+        print("📤 Sent")
     except Exception as e:
-        print("❌ Telegram Error:", e)
+        print("Telegram Error:", e)
 
-# Fetch live price
-def get_price(symbol):
+# 🔥 REAL Crude Oil Price (Yahoo)
+def get_crude_price():
     try:
-        df = yf.download(symbol, period="1d", interval="1m", progress=False)
-        if df.empty:
+        df = yf.download("CL=F", period="1d", interval="1m", progress=False)
+
+        if df is None or df.empty:
             return None
+
+        # MultiIndex fix
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
         price = float(df["Close"].iloc[-1])
+
         return price
+
     except Exception as e:
-        print("❌ Price Error:", e)
+        print("❌ Yahoo Error:", e)
         return None
 
-# Strategy
-def strategy(price_history, ce_strike, pe_strike):
+# 📈 Strategy
+def strategy(price_history):
     df = pd.DataFrame(price_history, columns=["close"])
+
     df["rsi"] = ta.momentum.RSIIndicator(df["close"]).rsi()
-    df["ema20"] = ta.trend.EMAIndicator(df["close"], window=20).ema_indicator()
-    df["ema50"] = ta.trend.EMAIndicator(df["close"], window=50).ema_indicator()
+
     last = df.iloc[-1]
-    price = float(last["close"])
+
+    price = float(last["close"])   # USD crude
     rsi = float(last["rsi"])
-    ema20 = float(last["ema20"])
-    ema50 = float(last["ema50"])
+
+    # 🔥 Convert to MCX (approx)
+    mcx_price = price * 80
 
     signal = None
     option = None
-    entry = None
+    option_price = None
 
-    # CE Signal
-    if rsi < 45 and ema20 > ema50:
+    # 🔥 BETTER LOGIC
+    if rsi < 45:
         signal = "BUY"
-        option = f"CE {ce_strike}"
-        intrinsic = max(0, price - ce_strike)
-        entry = max(50, intrinsic + price*0.02)
-    # PE Signal
-    elif rsi > 55 and ema20 < ema50:
+        option = "CRUDEOIL 9900 CE"
+
+        option_price = max(100, abs(mcx_price - 9900) * 0.35)
+
+    elif rsi > 55:
         signal = "BUY"
-        option = f"PE {pe_strike}"
-        intrinsic = max(0, pe_strike - price)
-        entry = max(50, intrinsic + price*0.02)
+        option = "CRUDEOIL 7500 PE"
 
-    return signal, option, price, rsi, entry
+        option_price = max(100, abs(7500 - mcx_price) * 0.35)
 
-# Flask dashboard
-app = Flask(__name__)
-signal_log = []
+    return signal, option, mcx_price, rsi, option_price
 
-@app.route("/")
-def dashboard():
-    html = """
-    <html><head><title>AUTO STRIKE PRO DASHBOARD</title></head><body>
-    <h2>🚀 AUTO STRIKE PRO DASHBOARD</h2>
-    <table border="1" cellpadding="5">
-    <tr><th>Symbol</th><th>Price</th><th>RSI</th><th>Signal</th><th>Option</th><th>Entry</th></tr>
-    {% for s in signals %}
-    <tr>
-        <td>{{ s['symbol'] }}</td>
-        <td>{{ s['price'] }}</td>
-        <td>{{ s['rsi'] }}</td>
-        <td>{{ s['signal'] }}</td>
-        <td>{{ s['option'] }}</td>
-        <td>{{ s['entry'] }}</td>
-    </tr>
-    {% endfor %}
-    </table>
-    </body></html>
-    """
-    return render_template_string(html, signals=signal_log[-10:])
-
-# Bot loop
+# 🤖 BOT
 def run_bot():
-    symbols = [("CL=F", CRUDE_CE_STRIKE, CRUDE_PE_STRIKE), ("^NSEI", NIFTY_CE_STRIKE, NIFTY_PE_STRIKE)]
-    last_signal_record = {}
+    print("🚀 CRUDEOIL LIVE + SIGNAL PRO BOT STARTED")
+
+    price_history = []
+    last_signal = None
 
     while True:
-        for symbol, ce_strike, pe_strike in symbols:
-            price = get_price(symbol)
+        try:
+            price = get_crude_price()
+
             if price is None:
+                print("❌ Price fetch error")
+                time.sleep(10)
                 continue
 
-            if symbol not in last_signal_record:
-                last_signal_record[symbol] = None
+            price_history.append(price)
 
-            price_history = [price]  # simple last candle; for pro, maintain full list
+            # keep last 100 candles only
+            if len(price_history) > 100:
+                price_history.pop(0)
 
-            signal, option, p, rsi, entry = strategy(price_history, ce_strike, pe_strike)
+            # Need minimum data for RSI
+            if len(price_history) < 20:
+                print("⏳ Collecting data...")
+                time.sleep(5)
+                continue
 
-            signal_info = {
-                "symbol": symbol,
-                "price": round(p,2),
-                "rsi": round(rsi,2),
-                "signal": signal or "No Trade",
-                "option": option or "-",
-                "entry": round(entry,2) if entry else "-"
-            }
-            signal_log.append(signal_info)
+            signal, option, price, rsi, op = strategy(price_history)
 
-            if signal and last_signal_record[symbol] != signal:
+            print(f"🛢️ CRUDE: {price} | RSI: {round(rsi,2)}")
+
+            if signal and signal != last_signal:
+
+                sl = op - 30
+                tp1 = op + 40
+                tp2 = op + 80
+
                 msg = f"""
-🚀 AUTO STRIKE PRO SIGNAL
+🚀 CRUDEOIL SIGNAL
 
-Symbol: {symbol}
 🔔 {signal}
 🎯 {option}
-💰 Price: {round(p,2)}
-💸 Entry: ₹{round(entry,2)}
+
+💰 Crude Price: {round(price,2)}
+💸 Entry: ₹{round(op,2)}
+
+🎯 TP1: ₹{round(tp1,2)}
+🎯 TP2: ₹{round(tp2,2)}
+🛑 SL : ₹{round(sl,2)}
+
 📈 RSI: {round(rsi,2)}
 """
+
                 send_telegram(msg)
-                last_signal_record[symbol] = signal
+                print("🔥 Signal Sent:", option)
 
-            print(signal_info)
+                last_signal = signal
+            else:
+                print("😴 No Trade")
 
-        time.sleep(60)
+            time.sleep(10)
 
-if __name__ == "__main__":
-    from threading import Thread
-    # Run dashboard
-    Thread(target=lambda: app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)).start()
-    # Run bot
-    run_bot()
+        except Exception as e:
+            print("❌ Bot Error:", e)
+            time.sleep(10)
+
+run_bot()
+
