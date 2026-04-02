@@ -7,12 +7,10 @@ import yfinance as yf
 
 TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
-
 def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
 
-# 🔥 Crude price
 def get_crude_price():
     df = yf.download("CL=F", period="1d", interval="1m", progress=False)
 
@@ -24,7 +22,6 @@ def get_crude_price():
 
     return float(df["Close"].iloc[-1])
 
-# 📈 Strategy
 def strategy(price_history):
     df = pd.DataFrame(price_history, columns=["close"])
 
@@ -54,26 +51,24 @@ def strategy(price_history):
 
     return signal, option, price, rsi
 
-# 🔥 Entry Zone
 def get_entry_zone(price):
     return round(price - 0.5, 2), round(price + 0.5, 2)
 
-# 🔥 Targets
 def get_targets(price):
     sl = round(price - 1.0, 2)
     tp1 = round(price + 1.5, 2)
     tp2 = round(price + 3.0, 2)
     return sl, tp1, tp2
 
-# 🤖 BOT
 def run_bot():
-    print("🚀 FIXED CRUDE BOT STARTED")
+    print("🚀 BOT STARTED")
 
     price_history = []
     last_signal_time = 0
 
     while True:
         try:
+            # -------- PRICE --------
             price = get_crude_price()
 
             if price is None:
@@ -90,18 +85,19 @@ def run_bot():
                 time.sleep(5)
                 continue
 
+            # -------- STRATEGY --------
             signal, option, price, rsi = strategy(price_history)
 
-            print(f"USD Crude: {price} | RSI: {round(rsi,2)}")
+            print("Price:", price, "RSI:", round(rsi, 2))
 
-            # ✅ Correct indentation (INSIDE TRY)
+            # -------- SIGNAL --------
             if signal and (time.time() - last_signal_time > 300):
 
                 entry_low, entry_high = get_entry_zone(price)
                 sl, tp1, tp2 = get_targets(price)
 
                 msg = f"""
-🚀 CRUDEOIL PRO SIGNAL
+🚀 CRUDEOIL SIGNAL
 
 🔔 {signal}
 🎯 {option}
@@ -112,12 +108,12 @@ def run_bot():
 🎯 TP2: ₹{tp2}
 🛑 SL: ₹{sl}
 
-📌 Chart பார்த்து confirm பண்ணி entry எடுக்கவும்
-
 📈 RSI: {round(rsi,2)}
 """
 
                 send_telegram(msg)
+                print("Signal Sent")
+
                 last_signal_time = time.time()
 
             else:
@@ -126,7 +122,7 @@ def run_bot():
             time.sleep(10)
 
         except Exception as e:
-            print("Error:", e)
+            print("ERROR:", e)
             time.sleep(10)
 
 run_bot()
