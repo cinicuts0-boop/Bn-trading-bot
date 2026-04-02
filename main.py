@@ -7,6 +7,7 @@ import yfinance as yf
 
 TELEGRAM_TOKEN = "8673237471:AAF8zpyUYnTsfJazfI-19x2o2Oi5VkDpuwU"
 CHAT_ID = "8007854479"
+
 def send_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
@@ -68,7 +69,6 @@ def run_bot():
 
     while True:
         try:
-            # -------- PRICE --------
             price = get_crude_price()
 
             if price is None:
@@ -85,12 +85,11 @@ def run_bot():
                 time.sleep(5)
                 continue
 
-            # -------- STRATEGY --------
             signal, option, price, rsi = strategy(price_history)
 
             print("Price:", price, "RSI:", round(rsi, 2))
 
-            # -------- SIGNAL --------
+            # 🔥 IMPORTANT: INSIDE TRY
             if signal and (time.time() - last_signal_time > 300):
 
                 entry_low, entry_high = get_entry_zone(price)
